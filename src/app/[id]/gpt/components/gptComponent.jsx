@@ -5,7 +5,7 @@ import { Input, Button, Card, CardHeader, CardBody, CardFooter, Textarea } from 
 // Importar 'motion' para animaciones
 import { motion } from "framer-motion";
 
-export default function GptComponent() {
+export default function GptComponent({ id }) {
 
     const [formData, setFormData] = useState({
         nombre: '',
@@ -23,27 +23,50 @@ export default function GptComponent() {
     };
 
     // 1. Manejador para el botón de guardar (por ahora solo muestra en consola)
-    const handleSave = () => {
-        console.log("Guardando datos:", formData);
-        // Aquí iría tu lógica de API POST/PUT
-    };
-
-    // 2. Manejador para cargar información (simulado)
-    const handleLoad = () => {
-        console.log("Cargando datos...");
-        // Simulación de carga de datos (aquí harías un GET a tu API)
-        setFormData({
-            nombre: 'Asistente IA',
-            personalidad: 'Amable y servicial, siempre dispuesto a ayudar.',
-            exclusiones: 'No hablar de política, no usar lenguaje ofensivo.',
-            contexto: 'El usuario está trabajando en un proyecto de logística.'
+    const handleSave = async () => {
+        const response = await fetch(`/api/${id}/chatbot`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                name: formData.nombre,
+                personality: formData.personalidad,
+                exlcusion: formData.exclusiones,
+                context: formData.contexto,
+                id_client: 1 // Puedes ajustar este valor según sea necesario
+            })
         });
+    }
+    // 2. Manejador para cargar información (simulado)
+    const handleLoad = async () => {
+        const response = await fetch(`/api/${id}/chatbot`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        const res = await response.json();
+        if (res.error) {
+            console.error("Error loading data:", data.error);
+            return;
+        }
+        if (response.ok) {
+            const data = await res.result;
+
+            setFormData({
+                nombre: data.name || '',
+                personalidad: data.personality || '',
+                exclusiones: data.exlcusion || '',
+                contexto: data.context || ''
+            });
+        }
     };
 
     return (
         // Contenedor general con padding
         <div className="flex justify-center w-full p-4">
-            
+
             {/* 3. Contenedor de animación con Framer Motion */}
             <motion.div
                 initial={{ opacity: 0, y: 20 }} // Inicia invisible y 20px abajo
@@ -56,7 +79,7 @@ export default function GptComponent() {
                     <CardHeader className="pb-0">
                         <h2 className="text-2xl font-bold">Configuración del Asistente</h2>
                     </CardHeader>
-                    
+
                     <CardBody className="gap-4">
                         {/* 5. Inputs organizados dentro del CardBody */}
                         <Input

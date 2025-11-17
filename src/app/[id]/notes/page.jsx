@@ -1,10 +1,10 @@
 import NotesPage from "./components/list";
 
-export default function NotesPrincipal(){
+export default function NotesPrincipal() {
 
-    return(
+    return (
         <div>
-            <NotesPage/>
+            <NotesPage />
         </div>
     )
 }

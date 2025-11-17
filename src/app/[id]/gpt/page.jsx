@@ -1,9 +1,11 @@
 import GptComponent from "./components/gptComponent";
 
-export default function GptPage() {
+export default async function GptPage({ params }) {
+
+    const { id } = await params;
     return (
         <div className="mx-auto container p-5 grid">
-            <GptComponent />
+            <GptComponent id={id} />
         </div>
     )
 }

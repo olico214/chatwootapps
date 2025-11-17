@@ -2,175 +2,235 @@
 import React, { useState, useEffect } from 'react';
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from '@fullcalendar/daygrid';
-import timeGridPlugin from '@fullcalendar/timegrid'; // Necesario para vistas de semana y día
-import interactionPlugin from '@fullcalendar/interaction'; // Necesario para dateClick
-import esLocale from '@fullcalendar/core/locales/es'; // Importar el idioma español
-import { Button } from '@nextui-org/react';
-import ModalCalendario from '../modalEventos/modal';
-const EventModal = ({ modalInfo, onClose }) => {
-  if (!modalInfo) return null;
+import timeGridPlugin from '@fullcalendar/timegrid';
+import interactionPlugin from '@fullcalendar/interaction';
+import esLocale from '@fullcalendar/core/locales/es';
+import { Spinner, useDisclosure } from '@nextui-org/react';
+import ModalCrearEvento from '../modalEventos/crear';
 
-  const { title, content } = modalInfo;
-
-  return (
-    
-    <div 
-      className="fixed inset-0 bg-black bg-opacity-50 z-40 flex justify-center items-center"
-      onClick={onClose} // Cierra el modal al hacer clic en el fondo
-    >
-      {/* Contenedor del Modal */}
-      <div 
-        className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md z-50 m-4"
-        onClick={(e) => e.stopPropagation()} // Evita que el clic en el modal cierre el modal
-      >
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-2xl font-semibold text-gray-800">{title}</h3>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-3xl"
-            aria-label="Cerrar"
-          >
-            &times;
-          </button>
-        </div>
-        <div className="text-gray-700 whitespace-pre-wrap">
-          {content}
-        </div>
-      </div>
-    </div>
-  );
+// --- 1. Constante de Colores ---
+const STATUS_COLORS = {
+  Nuevo: {
+    backgroundColor: '#3498db', // Azul
+    borderColor: '#2980b9'
+  },
+  Reagenda: {
+    backgroundColor: '#f39c12', // Naranja
+    borderColor: '#d35400'
+  },
+  Finalizado: {
+    backgroundColor: '#2ecc71', // Verde
+    borderColor: '#27ae60'
+  },
+  cancelado: {
+    backgroundColor: '#e74c3c', // Rojo
+    borderColor: '#c0392b'
+  },
+  default: {
+    backgroundColor: '#95a5a6', // Gris
+    borderColor: '#7f8c8d'
+  }
 };
 
+export default function CalendarComponent({ id }) {
 
-// --- Componente Principal del Calendario ---
-export default function CalendarComponent() {
-  
-  // Estado para guardar los eventos
+  const [selectedEventData, setSelectedEventData] = useState(null);
+  const {
+    isOpen: isCreateOpen,
+    onOpen: onCreateOpen,
+    onOpenChange
+  } = useDisclosure();
   const [events, setEvents] = useState([]);
-  
-  // Estado para controlar la visibilidad y el contenido del modal
-  const [modalInfo, setModalInfo] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
 
-  // Simulación de carga de API al montar el componente
+
+  // --- 2. CORRECCIÓN PRINCIPAL (useEffect) ---
+  // Se movió la lógica de 'fetchEvents' DENTRO del 'useEffect'.
+  // Esto soluciona el error "Cannot access 'fetchEvents' before initialization".
   useEffect(() => {
-    // Tus datos de la API irían aquí
-    const mockApiEvents = [
-      {
-        id: '1',
-        // 'title' es lo que FullCalendar usa para el 'nombre'
-        title: 'Cita: Juan Pérez', 
-        // Combinamos 'fecha' y 'hora' en el formato ISO 'start'
-        start: '2025-11-10T10:30:00', 
-        end: '2025-11-10T11:30:00',
-        // Usamos 'extendedProps' para datos adicionales
-        extendedProps: {
-          telefono: '555-1234'
-        },
-        backgroundColor: '#3498db', // Azul
-        borderColor: '#2980b9'
-      },
-      {
-        id: '2',
-        title: 'Cita: María López',
-        start: '2025-11-12T09:00:00',
-        end: '2025-11-12T10:00:00',
-        extendedProps: {
-          telefono: '555-8765'
-        },
-        backgroundColor: '#2ecc71', // Verde
-        borderColor: '#27ae60'
-      },
-      {
-        id: '3',
-        title: 'Reunión de Equipo',
-        start: '2025-11-12T14:00:00',
-        end: '2025-11-12T15:30:00',
-        extendedProps: {
-          telefono: 'N/A'
-        },
-        backgroundColor: '#f39c12', // Naranja
-        borderColor: '#d35400'
+    if (!id) {
+      setIsLoading(false);
+      setLoadError("No se proporcionó un ID de usuario.");
+      return;
+    }
+
+    const fetchEvents = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const response = await fetch(`/api/${id}/calendar`);
+        if (!response.ok) {
+          throw new Error('Error al cargar las citas del servidor.');
+        }
+
+        const data = await response.json();
+
+        // --- 3. ACTUALIZACIÓN: Aplicar colores por estatus ---
+        const formattedEvents = data.map(cita => {
+          // Asigna 'Nuevo' si el estatus es null o vacío
+          const status = cita.status || 'Nuevo';
+          // Obtiene el par de colores o usa el default
+          const colors = STATUS_COLORS[status] || STATUS_COLORS.default;
+          const newDate = cita.date.split("T")
+          return {
+            id: cita.id,
+            title: cita.name,
+            start: `${newDate[0]}T${cita.hour}`,
+            extendedProps: {
+              telefono: cita.phone,
+              comentary: cita.comentary,
+              status: status // <-- Guardamos el estatus aquí
+            },
+            backgroundColor: colors.backgroundColor, // <-- Color aplicado
+            borderColor: colors.borderColor       // <-- Color aplicado
+          };
+        });
+
+        console.log("Eventos formateados:", formattedEvents); // Revisa la consola de tu navegador
+        setEvents(formattedEvents);
+
+      } catch (err) {
+        setLoadError(err.message);
+      } finally {
+        setIsLoading(false);
       }
-    ];
+    };
 
-    setEvents(mockApiEvents);
-  }, []);
+    // Llamamos a la función que acabamos de definir
+    fetchEvents();
 
-  // Manejador para clic en un DÍA VACÍO
+  }, [id]); // El 'useEffect' se ejecuta cada vez que el 'id' cambia
+
+
+  // Clic en un día (para Crear)
   const handleDateClick = (arg) => {
-    // Formateamos la fecha seleccionada
-    const formattedDate = new Intl.DateTimeFormat('es-ES', {
-      dateStyle: 'full', 
-      timeStyle: 'short'
-    }).format(arg.date);
+    // ... (sin cambios)
+    const d = arg.date;
+    const date = d.toISOString().split('T')[0];
+    const time = arg.allDay ? "09:00" : d.toTimeString().split(' ')[0].substring(0, 5);
+    setSelectedEventData({ date: date, hour: time });
+    onCreateOpen();
+  };
 
-    setModalInfo({
-      title: 'Fecha Seleccionada',
-      content: `Has hecho clic en: ${formattedDate}\n\nAquí podrías abrir un formulario para crear un nuevo evento.`
-    });
-  }
+  // Clic en un evento (para Editar)
+  const handleEventClick = (arg) => {
+    // ... (sin cambios)
+    const event = arg.event;
+    const isoStart = event.start.toISOString();
+    const date = isoStart.split('T')[0];
+    const hour = isoStart.split('T')[1].substring(0, 5);
 
-  // Manejador para clic en un EVENTO EXISTENTE
-  const handleEventClick = (clickInfo) => {
-    const event = clickInfo.event;
-    
-    // Formateamos la hora del evento
-    const startTime = new Intl.DateTimeFormat('es-ES', { timeStyle: 'short' }).format(event.start);
-    
-    // Extraemos los datos
-    const title = event.title;
-    const telefono = event.extendedProps.telefono || 'No especificado';
-    const fecha = new Intl.DateTimeFormat('es-ES', { dateStyle: 'long' }).format(event.start);
+    const eventData = {
+      id: event.id,
+      name: event.title,
+      phone: event.extendedProps.telefono || '',
+      comentary: event.extendedProps.comentary || '',
+      status: event.extendedProps.status || 'Nuevo', // <-- Pasa el estatus al modal
+      date: date,
+      hour: hour,
+    };
+    setSelectedEventData(eventData);
+    onCreateOpen();
+  };
 
-    // Preparamos el contenido del modal
-    const modalContent = `Fecha: ${fecha}\nHora: ${startTime}\nTeléfono: ${telefono}`;
 
-    setModalInfo({
-      title: title,
-      content: modalContent
-    });
-  }
+  // --- 4. ACTUALIZACIÓN: Asignar color al CREAR y ACTUALIZAR ---
+  const handleCreateSuccess = (eventData, mode) => {
+
+    if (mode === 'create') {
+      const colors = STATUS_COLORS['Nuevo']; // Los nuevos siempre son 'Nuevo'
+      const formattedEvent = {
+        id: eventData.id,
+        title: eventData.name,
+        start: `${eventData.date}T${eventData.hour}`,
+        extendedProps: {
+          telefono: eventData.phone,
+          comentary: eventData.comentary,
+          status: 'Nuevo' // <-- Asignar estatus
+        },
+        backgroundColor: colors.backgroundColor, // <-- Asignar color
+        borderColor: colors.borderColor
+      };
+      setEvents(prev => [...prev, formattedEvent]);
+
+    } else if (mode === 'update') {
+      // Al actualizar, debemos encontrar el estatus original (ya que el modal aún no lo edita)
+      // y re-aplicar el color correcto.
+      setEvents(prevEvents => prevEvents.map(event => {
+        if (event.id.toString() === eventData.id.toString()) {
+          // Mantenemos el estatus que ya tenía
+          const status = event.extendedProps.status || 'Nuevo';
+          const colors = STATUS_COLORS[status] || STATUS_COLORS.default;
+          return {
+            id: eventData.id,
+            title: eventData.name,
+            start: `${eventData.date}T${eventData.hour}`,
+            end: `${eventData.date}T${eventData.hour}`,
+            extendedProps: {
+              telefono: eventData.phone,
+              comentary: eventData.comentary,
+              status: status // <-- Preservar estatus
+            },
+            backgroundColor: colors.backgroundColor, // <-- Re-aplicar color
+            borderColor: colors.borderColor
+          };
+        }
+        return event; // Devuelve los otros eventos sin cambios
+      }));
+
+    } else if (mode === 'delete') {
+      setEvents(prevEvents => prevEvents.filter(event =>
+        event.id.toString() !== eventData.id.toString()
+      ));
+    }
+
+    onOpenChange();
+    setSelectedEventData(null);
+  };
+
 
   return (
-    // Envolvemos el calendario en un contenedor con padding y fondo
     <div className="p-4 md:p-8 bg-gray-100 min-h-screen">
+      <div className='flex justify-between items-center mb-6'>
+        {/* ... (título y modal) ... */}
+        <h1 className="text-3xl font-bold text-gray-800">Calendario de Citas</h1>
+        <ModalCrearEvento
+          id={id} // id_user
+          isOpen={isCreateOpen}
+          onOpenChange={() => {
+            onOpenChange();
+            if (isCreateOpen) {
+              setSelectedEventData(null);
+            }
+          }}
+          eventData={selectedEventData}
+          onSuccess={handleCreateSuccess}
+        />
 
-<div className='flex justify-between'>
-      <h1 className="text-3xl font-bold text-gray-800 mb-6">Calendario de Citas</h1>
-    <Button>Crear Evento</Button>
-    </div>      
+      </div>
+
       <div className="bg-white rounded-lg shadow-lg p-4">
-        
         <FullCalendar
           plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+          // ... (resto de las props de FullCalendar están bien) ...
+          locale={esLocale}
+          events={events}
+          dateClick={handleDateClick}
+          eventClick={handleEventClick}
+          // ...
           initialView="dayGridMonth"
-          
-          // --- Barra de Herramientas (Navegación y Vistas) ---
           headerToolbar={{
             left: 'prev,next today',
             center: 'title',
-            right: 'dayGridMonth,timeGridWeek,timeGridDay' // Botones de vistas
+            right: 'dayGridMonth,timeGridWeek,timeGridDay'
           }}
-          
-          locale={esLocale} // Poner en español
-          
-          events={events} // Cargar los eventos desde el estado
-          
-          dateClick={handleDateClick} // Clic en un día
-          eventClick={handleEventClick} // Clic en un evento
-          selectable={true} // Permite seleccionar rangos de días/horas
-          
-          // --- Apariencia ---
-          dayMaxEvents={true} // Muestra un enlace "+ más" si hay muchos eventos
-          height="auto" // Ajusta la altura al contenido
+          selectable={true}
+          dayMaxEvents={true}
+          height="auto"
+          eventDataUpdated={(info) => info.event}
         />
       </div>
-
-      {/* --- Renderizar el Modal --- */}
-      <EventModal 
-        modalInfo={modalInfo}
-        onClose={() => setModalInfo(null)}
-      />
     </div>
   );
 }

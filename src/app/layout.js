@@ -1,9 +1,9 @@
 import "./globals.css";
 import { Toaster } from "sonner";
-
+const appname = process.env.NAMEAPP || "SOITEG";
 export const metadata = {
-  title: "Grupo pir",
-  description: "Grupo pir",
+  title: appname,
+  description: appname,
 };
 
 export default async function RootLayout({ children }) {

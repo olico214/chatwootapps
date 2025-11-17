@@ -1,7 +1,8 @@
-// ./Column.jsx
+// ./Column.jsx (Corregido)
+
 import React from "react";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { useDroppable } from "@dnd-kit/core";
+// import { useDroppable } from "@dnd-kit/core"; // <--- 1. ELIMINADO
 import { Button } from "@nextui-org/react";
 
 // Componente de Tarjeta de Nota (Draggable)
@@ -9,11 +10,11 @@ import NoteCard from "./NoteCard";
 import { CircleFadingPlus } from "lucide-react";
 
 export default function Column({ id, title, tasks, onAddTask, onEditTask }) {
-  const { setNodeRef } = useDroppable({ id });
+  // const { setNodeRef } = useDroppable({ id }); // <--- 2. ELIMINADO
 
   return (
     <div
-      ref={setNodeRef}
+      // ref={setNodeRef} // <--- 3. ELIMINADO
       className="flex flex-col bg-default-100/50 rounded-lg p-4 h-full"
     >
       {/* Título de la Columna */}
@@ -21,15 +22,15 @@ export default function Column({ id, title, tasks, onAddTask, onEditTask }) {
 
       {/* Contenedor de las tareas (scrollable) */}
       <SortableContext
-        id={id}
+        id={id} // Esto es suficiente para que sea un 'droppable'
         items={tasks.map((task) => task.id)}
         strategy={verticalListSortingStrategy}
       >
         <div className="flex flex-col gap-3 flex-grow min-h-[100px] overflow-y-auto">
           {tasks.map((task) => (
-            <NoteCard 
-              key={task.id} 
-              task={task} 
+            <NoteCard
+              key={task.id}
+              task={task}
               onEditTask={() => onEditTask(task)}
             />
           ))}

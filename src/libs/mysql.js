@@ -2,19 +2,20 @@ import mysql from "mysql2/promise";
 
 let pool;
 
-//  user: process.env.DB_USER,
-//     password: process.env.DB_PASSWORD,
-//     server: process.env.DB_SERVER,
-//     port: parseInt(process.env.DB_PORT, 10), // 👈 Agrega esto
-//     database: process.env.DB_NAME,
-//     dotenv.config({ path: '.env.locale' });
+
+// dotenv.config({ path: '.env.locale' });
+
+// console.log("Conectando a la base de datos con los siguientes parámetros:");
+// console.log("Usuario:", process.env.DB_USER);
+// console.log("Servidor:", process.env.DB_SERVER);
+// console.log("Base de datos:", process.env.DB_NAME);
 
 try {
   pool = mysql.createPool({
-    host: "localhost",
-    user: "root",
-    password: "", // deja vacío si no pusiste contraseña
-    database: "finiquito",
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    server: process.env.DB_SERVER,
+    database: process.env.DB_NAME,
     multipleStatements: true,
     namedPlaceholders: true,
   });

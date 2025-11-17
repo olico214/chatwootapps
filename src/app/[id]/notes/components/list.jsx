@@ -1,89 +1,153 @@
-"use client"; // Necesario para Next.js 13+ App Router y los hooks de React
+"use client"
+import React, { useState } from 'react';
+import { v4 as uuidv4 } from 'uuid'; // (npm install uuid)
 
-import React, { useState } from "react";
+// Importaciones de Dnd-Kit
 import {
   DndContext,
-  KeyboardSensor,
   PointerSensor,
+  KeyboardSensor,
   useSensor,
   useSensors,
+  DragOverlay,
   closestCorners,
-} from "@dnd-kit/core";
-import { sortableKeyboardCoordinates, arrayMove } from "@dnd-kit/sortable";
-import { v4 as uuidv4 } from "uuid";
-import {
-  Button,
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-  useDisclosure,
-  Input,
-  Textarea,
-  Card,
-  CardHeader,
-  CardBody,
-  Spacer,
-  Chip,
-} from "@nextui-org/react";
+} from '@dnd-kit/core';
+import { sortableKeyboardCoordinates, arrayMove } from '@dnd-kit/sortable';
+import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
-// Componente de Columna (Droppable)
-import Column from "./columns";
+// --- Datos Iniciales de Ejemplo (LOS MISMOS DE ANTES) ---
+const tasksFromBackend = [
+  { id: 'task-1', content: 'Revisar el bug del login' },
+  { id: 'task-2', content: 'Desarrollar la nueva landing page' },
+  { id: 'task-3', content: 'Llamar al cliente X' },
+  { id: 'task-4', content: 'Optimizar la consulta SQL' }
+];
 
-// Componente de Modal (Crear/Editar)
-import NoteModal from "./NoteModal"; // Asumiremos que creas este archivo (ver abajo)
-
-// Definimos las columnas que queremos
-const COLUMN_IDS = {
-  NUEVO: "nuevo",
-  URGENTE: "urgente",
-  EN_PROCESO: "enProceso",
-  FINALIZADO: "finalizado",
-  CANCELADO: "cancelado",
+const columnsFromBackend = {
+  'col-1': {
+    name: 'Urgente',
+    items: [tasksFromBackend[2]] // task-3
+  },
+  'col-2': {
+    name: 'Nuevo',
+    items: [tasksFromBackend[0], tasksFromBackend[1]] // task-1, task-2
+  },
+  'col-3': {
+    name: 'En proceso',
+    items: [tasksFromBackend[3]] // task-4
+  },
+  'col-4': {
+    name: 'Cancelado',
+    items: []
+  },
+  'col-5': {
+    name: 'Finalizado',
+    items: []
+  }
 };
+// ---------------------------------
 
-const columnTitles = {
-  [COLUMN_IDS.NUEVO]: "Nuevo",
-  [COLUMN_IDS.URGENTE]: "Urgente",
-  [COLUMN_IDS.EN_PROCESO]: "En proceso",
-  [COLUMN_IDS.FINALIZADO]: "Finalizado",
-  [COLUMN_IDS.CANCELADO]: "Cancelado",
+// --- Estilos (LOS MISMOS DE ANTES) ---
+const styles = {
+  boardContainer: {
+    display: 'flex',
+    justifyContent: 'center',
+    padding: '20px',
+    backgroundColor: '#f5f5f5',
+    fontFamily: 'Arial, sans-serif',
+    gap: '16px', // Espacio entre columnas
+  },
+  column: {
+    backgroundColor: '#eceff1',
+    borderRadius: '8px',
+    width: '250px',
+    minHeight: '500px',
+    padding: '16px 8px',
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  columnTitle: {
+    fontSize: '1.2rem',
+    fontWeight: 'bold',
+    padding: '0 8px 16px 8px',
+    color: '#333'
+  },
+  taskCard: {
+    userSelect: 'none',
+    padding: '16px',
+    margin: '0 0 8px 0',
+    minHeight: '50px',
+    backgroundColor: '#ffffff',
+    color: '#111',
+    borderRadius: '4px',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24)',
+    cursor: 'grab', // Cursor para arrastrar
+  },
+  taskCardDragging: { // Estilo para la tarjeta mientras se arrastra
+    opacity: 0.8,
+    transform: 'rotate(3deg)',
+    boxShadow: '0 10px 20px rgba(0,0,0,0.19), 0 6px 6px rgba(0,0,0,0.23)',
+  }
 };
+// ---------------------------
 
-// Datos iniciales de ejemplo
-const initialTasks = {
-  [COLUMN_IDS.NUEVO]: [
-    {
-      id: uuidv4(),
-      titulo: "Revisar el bug de login",
-      comentario: "El bug ocurre solo en Safari.",
-      fechaInicio: "2025-11-16T10:00",
-      fechaFin: "2025-11-16T12:00",
-    },
-  ],
-  [COLUMN_IDS.URGENTE]: [
-    {
-      id: uuidv4(),
-      titulo: "Desplegar a producción",
-      comentario: "¡Urgente! El cliente está esperando.",
-      fechaInicio: "2025-11-16T09:00",
-      fechaFin: "2025-11-16T09:30",
-    },
-  ],
-  [COLUMN_IDS.EN_PROCESO]: [],
-  [COLUMN_IDS.FINALIZADO]: [],
-  [COLUMN_IDS.CANCELADO]: [],
-};
+// --- Componente Task (Draggable) ---
+function TaskCard({ task }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: task.id }); // Usa el ID de la tarea
 
-export default function NotesPage() {
-  const [tasks, setTasks] = useState(initialTasks);
-  const { isOpen, onOpen, onOpenChange } = useDisclosure();
-  
-  // Estado para saber qué nota editar o en qué columna crear una nueva
-  const [editingNote, setEditingNote] = useState(null); // Objeto de la nota
-  const [targetColumn, setTargetColumn] = useState(null); // ID de la columna
+  const style = {
+    ...styles.taskCard,
+    transform: CSS.Transform.toString(transform),
+    transition,
+    ...(isDragging ? styles.taskCardDragging : {}),
+  };
 
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      {task.content}
+    </div>
+  );
+}
+
+// --- Componente Column (Droppable) ---
+// Dentro de tu componente 'Column'
+
+function Column({ columnId, name, tasks }) {
+  return (
+    <div style={styles.column}>
+
+      {/* 1. El título está solo en su <h2> y se cierra */}
+      <h2 style={styles.columnTitle}>{name}</h2>
+
+      {/* 2. La lista de tareas es HERMANA del h2, no hija */}
+      <SortableContext
+        items={tasks.map(t => t.id)}
+        strategy={verticalListSortingStrategy}
+      >
+        {/* ... aquí van las TaskCard ... */}
+        {tasks.map(task => (
+          <TaskCard key={task.id} task={task} />
+        ))}
+      </SortableContext>
+
+    </div>
+  );
+}
+
+// --- Componente Principal Kanban ---
+function NotesPage() {
+  const [columns, setColumns] = useState(columnsFromBackend);
+  const [activeTask, setActiveTask] = useState(null); // Para el DragOverlay
+
+  // Define los sensores (mouse, touch, teclado)
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -91,130 +155,118 @@ export default function NotesPage() {
     })
   );
 
-  // Función para encontrar en qué columna está una tarea
-  const findTaskColumn = (taskId) => {
-    return Object.keys(tasks).find((columnId) =>
-      tasks[columnId].some((task) => task.id === taskId)
+  // --- Lógica de Dnd-Kit ---
+
+  // Encuentra la columna a la que pertenece una tarea
+  const findColumn = (taskId) => {
+    return Object.entries(columns).find(([columnId, col]) =>
+      col.items.some(item => item.id === taskId)
     );
   };
 
-  // Lógica principal de Drag and Drop
-  const handleDragEnd = (event) => {
+  // Se dispara cuando se empieza a arrastrar
+  function handleDragStart(event) {
+    const { active } = event;
+    const task = findColumn(active.id)[1].items.find(item => item.id === active.id);
+    setActiveTask(task);
+  }
+
+  // Se dispara cuando se suelta el elemento
+  function handleDragEnd(event) {
     const { active, over } = event;
-    if (!over) return; // Se soltó fuera de un contenedor
+    if (!over) {
+      setActiveTask(null);
+      return;
+    }
 
-    const activeId = active.id;
-    const overId = over.id;
+    const originalColumnEntry = findColumn(active.id);
+    const overColumnEntry = findColumn(over.id);
 
-    // IDs de los contenedores (columnas)
-    const activeContainerId = findTaskColumn(activeId);
-    
-    // 'over.id' puede ser un item o un contenedor. 
-    // Si 'over' es un item, 'over.data.current.sortable.containerId' es su columna.
-    // Si 'over' es un contenedor, 'over.id' es la columna.
-    const overContainerId = tasks[overId] ? overId : findTaskColumn(overId);
+    // Si no se encuentra columna de destino (p.ej. soltando sobre la misma tarea)
+    // o si soltamos sobre un área no válida.
+    // Dnd-kit es más granular, 'over' puede ser una tarea o una columna.
+    // Para este ejemplo, simplificamos y asumimos que 'over' nos da una pista.
 
+    const activeColumnId = originalColumnEntry[0];
+    const activeTask = originalColumnEntry[1].items.find(item => item.id === active.id);
 
-    if (!activeContainerId || !overContainerId) return;
+    // Dnd-kit puede soltar "sobre" una tarea o "sobre" una columna.
+    // Primero, encontramos la columna destino (targetColumnId)
+    let targetColumnId = null;
+    let overIndex = -1;
 
-    const activeTask = tasks[activeContainerId].find(t => t.id === activeId);
-    if (!activeTask) return;
+    // Buscamos si 'over.id' es una columna
+    if (columns[over.id]) {
+      targetColumnId = over.id;
+      overIndex = columns[over.id].items.length; // Poner al final
+    } else {
+      // Si no, 'over.id' es una tarea. Encontramos la columna de esa tarea.
+      const overColumnPair = findColumn(over.id);
+      if (overColumnPair) {
+        targetColumnId = overColumnPair[0];
+        overIndex = overColumnPair[1].items.findIndex(item => item.id === over.id);
+      }
+    }
 
-    setTasks((prev) => {
-      const newTasks = { ...prev };
+    if (!targetColumnId) {
+      setActiveTask(null);
+      return; // No se pudo determinar el destino
+    }
 
-      // Quitar la tarea de la columna original
-      const activeColumnTasks = newTasks[activeContainerId].filter(
-        (task) => task.id !== activeId
-      );
+    // --- Lógica de Mover ---
+    setColumns(prev => {
+      const newColumns = { ...prev };
+      const sourceCol = newColumns[activeColumnId];
+      const destCol = newColumns[targetColumnId];
 
-      // Añadir la tarea a la nueva columna
-      const overColumnTasks = [...newTasks[overContainerId]];
-      
-      // Encontrar el índice donde se soltó
-      const overIndex = overColumnTasks.findIndex(t => t.id === overId);
-      
-      if (overIndex !== -1) {
-         // Se soltó sobre otra tarea
-        overColumnTasks.splice(overIndex, 0, activeTask);
+      // Quitar de la columna origen
+      const taskIndex = sourceCol.items.findIndex(item => item.id === active.id);
+      const [removedTask] = sourceCol.items.splice(taskIndex, 1);
+
+      if (activeColumnId === targetColumnId) {
+        // --- Mover en la misma columna ---
+        // 'arrayMove' es una utilidad de @dnd-kit/sortable
+        destCol.items = arrayMove(destCol.items, taskIndex, overIndex > -1 ? overIndex : destCol.items.length);
       } else {
-         // Se soltó sobre la columna (área vacía)
-        overColumnTasks.push(activeTask);
+        // --- Mover a una columna diferente ---
+        destCol.items.splice(overIndex > -1 ? overIndex : destCol.items.length, 0, removedTask);
       }
 
-      newTasks[activeContainerId] = activeColumnTasks;
-      newTasks[overContainerId] = overColumnTasks;
-
-      return newTasks;
+      return newColumns;
     });
-  };
-  
-  // --- Manejo del Modal ---
 
-  const handleOpenModal = (columnId) => {
-    setTargetColumn(columnId);
-    setEditingNote(null);
-    onOpen();
-  };
-
-  const handleEditNote = (note) => {
-    setEditingNote(note);
-    setTargetColumn(null); // No estamos creando una nueva
-    onOpen();
-  };
-
-  const handleSubmitNote = (noteData) => {
-    if (editingNote) {
-      // Estamos editando
-      const columnId = findTaskColumn(editingNote.id);
-      setTasks((prev) => ({
-        ...prev,
-        [columnId]: prev[columnId].map((task) =>
-          task.id === editingNote.id ? { ...task, ...noteData } : task
-        ),
-      }));
-    } else {
-      // Estamos creando
-      const newNote = {
-        id: uuidv4(),
-        ...noteData,
-      };
-      setTasks((prev) => ({
-        ...prev,
-        [targetColumn]: [...prev[targetColumn], newNote],
-      }));
-    }
-  };
+    setActiveTask(null);
+  }
 
   return (
-    <div className="flex flex-col h-full p-4 md:p-8">
-      <h1 className="text-3xl font-bold mb-6">Tablero de Notas</h1>
-      
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCorners}
-        onDragEnd={handleDragEnd}
-      >
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 flex-grow">
-          {Object.entries(columnTitles).map(([columnId, title]) => (
-            <Column
-              key={columnId}
-              id={columnId}
-              title={title}
-              tasks={tasks[columnId]}
-              onAddTask={() => handleOpenModal(columnId)}
-              onEditTask={handleEditNote}
-            />
-          ))}
-        </div>
-      </DndContext>
+    // DndContext envuelve todo
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCorners}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
+      <div style={styles.boardContainer}>
+        {Object.entries(columns).map(([columnId, column]) => (
+          <Column
+            key={columnId}
+            columnId={columnId}
+            name={column.name}
+            tasks={column.items}
+          />
+        ))}
+      </div>
 
-      <NoteModal
-        isOpen={isOpen}
-        onOpenChange={onOpenChange}
-        onSubmit={handleSubmitNote}
-        noteToEdit={editingNote}
-      />
-    </div>
+      {/* DragOverlay muestra un 'fantasma' del elemento mientras se arrastra */}
+      <DragOverlay>
+        {activeTask ? (
+          <div style={{ ...styles.taskCard, ...styles.taskCardDragging }}>
+            {activeTask.content}
+          </div>
+        ) : null}
+      </DragOverlay>
+    </DndContext>
   );
 }
+
+export default NotesPage;

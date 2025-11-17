@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "next dev --turbopack --port 3001",
     "build": "next build",
     "start": "next start ",
     "lint": "next lint"
@@ -19,6 +19,7 @@
     "@fullcalendar/timegrid": "^6.1.15",
     "@nextui-org/react": "^2.6.10",
     "bcrypt": "^5.1.1",
+    "dotenv": "^17.2.3",
     "framer-motion": "^11.18.2",
     "lucide-react": "^0.475.0",
     "mysql2": "^3.12.0",
