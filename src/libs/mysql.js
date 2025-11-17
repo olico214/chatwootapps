@@ -5,10 +5,10 @@ let pool;
 
 // dotenv.config({ path: '.env.locale' });
 
-// console.log("Conectando a la base de datos con los siguientes parámetros:");
-// console.log("Usuario:", process.env.DB_USER);
-// console.log("Servidor:", process.env.DB_SERVER);
-// console.log("Base de datos:", process.env.DB_NAME);
+console.log("Conectando a la base de datos con los siguientes parámetros:");
+console.log("Usuario:", process.env.DB_USER);
+console.log("Servidor:", process.env.DB_SERVER);
+console.log("Base de datos:", process.env.DB_NAME);
 
 try {
   pool = mysql.createPool({
