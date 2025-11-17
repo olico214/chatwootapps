@@ -12,10 +12,10 @@ console.log("Base de datos:", process.env.DB_NAME);
 
 try {
   pool = mysql.createPool({
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    server: process.env.DB_SERVER,
-    database: process.env.DB_NAME,
+    user: "u835880732_chatwootapps",
+    password: "Y0SQE~i~",
+    server: "srv650.hstgr.io",
+    database: "u835880732_chatwootapps",
     multipleStatements: true,
     namedPlaceholders: true,
   });
